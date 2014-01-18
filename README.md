@@ -14,6 +14,9 @@ using min(), max() and linear functions of x.
 Here are some examples for small n.
 
 F(x,0) = 0
+
 F(x,1) = x
+
 F(x,2) = x + 1
+
 F(x,3) = 2x + 2
