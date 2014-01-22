@@ -7,7 +7,7 @@ import "strings"
 // A Piecewise is a list of linear functions (Linear), ordered by the 
 // lower bound where that Linear takes effect.  The value of the Piecewise
 // at n is the value of the Linear with the largest lowerBound less than
-// or equal to n. 
+// or equal to n.  A Piecewise is defined for all integer x >= 1,
 type Piecewise struct {
   segments []PiecewiseSegment
 }
@@ -22,8 +22,20 @@ type PiecewiseSegment struct {
 
 // Find the PiecewiseSegment 
 func (p Piecewise) ActiveSegment(x uint64) int {
-  low := 0
+  // x = 1 will always be the start of the first segment.
+  if x == 1 {
+    return 0
+  }
+
+  // It will be common for x to surpass the highest lowerBound, so we 
+  // optimize for this case
   high := len(p.segments) - 1
+  if x >= p.segments[high].lowerBound {
+    return high
+  }
+
+
+  low := 0
   mid := 0
   
   for low <= high { 
@@ -58,8 +70,8 @@ func (p Piecewise) LastBound() uint64 {
   return p.segments[len(p.segments) - 1].lowerBound
 }
 
-func (p Piecewise) Eval(n uint64) uint64 {
-  return p.segments[p.ActiveSegment(n)].f.Eval(n)
+func (p Piecewise) Eval(x uint64) uint64 {
+  return p.segments[p.ActiveSegment(x)].f.Eval(x)
 }
 
 func (p Piecewise) String() string {
@@ -180,4 +192,43 @@ func compose(a Piecewise, b Piecewise, comp composePiecewise) Piecewise {
   } 
 
   return result
+}
+
+// Returns a composePiecewise that can be used to produce Min(a,b)
+func minCompose(a, b Piecewise) composePiecewise {
+  var takeFrom *Piecewise
+  var takeFromA bool
+
+  aStart, bStart := a.Eval(1), b.Eval(1)
+
+  switch {
+  case aStart < bStart:
+    takeFromA = true
+
+  case bStart < aStart:
+    takeFromA = false
+
+  // They intersect at x=1, so take the one with the smaller slope, or 
+  // pick a if they coincide.
+  default:
+    switch { 
+      case a.segments[0].f.a < b.segments[0].f.a:
+        takeFromA = true
+      case b.segments[0].f.a > a.segments[0].f.a:
+        takeFromA = false
+      default:
+        takeFromA = true
+    }
+  } 
+
+  if takeFromA {
+    takeFrom = &a
+  } else {
+    takeFrom = &b
+  }
+}
+
+// Returns a composePiecewise that can be used to produce Max(a,b)
+func maxCompose(a, b Piecewise) composePiecewise {
+  return composePiecewise{true, []uint64{1}}
 }
