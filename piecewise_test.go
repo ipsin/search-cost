@@ -68,22 +68,22 @@ var piecewiseMinMaxTests = []struct {
   a           Piecewise
   b           Piecewise
 }{
-   // { Piecewise{[]PiecewiseSegment{
-       // PiecewiseSegment{1, Linear{2,3}},
-     // }},
-     // Piecewise{[]PiecewiseSegment{
-       // PiecewiseSegment{1, Linear{2,3}},
-     // }},
-   // },
-   // { Piecewise{[]PiecewiseSegment{
-       // PiecewiseSegment{1, Linear{4,0}},
-       // PiecewiseSegment{5, Linear{3,5}},
-     // }},
-     // Piecewise{[]PiecewiseSegment{
-       // PiecewiseSegment{1, Linear{3,5}},
-       // PiecewiseSegment{5, Linear{4,0}},
-     // }},
-   // },
+   { Piecewise{[]PiecewiseSegment{
+       PiecewiseSegment{1, Linear{2,3}},
+     }},
+     Piecewise{[]PiecewiseSegment{
+       PiecewiseSegment{1, Linear{2,3}},
+     }},
+   },
+   { Piecewise{[]PiecewiseSegment{
+       PiecewiseSegment{1, Linear{4,0}},
+       PiecewiseSegment{5, Linear{3,5}},
+     }},
+     Piecewise{[]PiecewiseSegment{
+       PiecewiseSegment{1, Linear{3,5}},
+       PiecewiseSegment{5, Linear{4,0}},
+     }},
+   },
    { Piecewise{[]PiecewiseSegment{
        PiecewiseSegment{1, Linear{7,12}},
        PiecewiseSegment{3, Linear{4,19}},
@@ -93,18 +93,16 @@ var piecewiseMinMaxTests = []struct {
        PiecewiseSegment{1, Linear{0,52}},
      }},
    },
-
-
 }
 
 const checkDistancePastBound = 5;
 
 func TestPiecewiseMin(t *testing.T) { 
-  // DoTestPiecewiseMinMax(t, "Min", true)
+  DoTestPiecewiseMinMax(t, "Min", true)
 }
 
 func TestPiecewiseMax(t *testing.T) { 
-  // DoTestPiecewiseMinMax(t, "Max", false)
+  DoTestPiecewiseMinMax(t, "Max", false)
 }
 
 

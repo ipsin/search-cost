@@ -99,13 +99,13 @@ func (p Piecewise) String() string {
 // Return a Piecewise that (for all integers x >= 1) takes on the 
 // lesser of p(x) and q(x).  
 func (p Piecewise) Min(q Piecewise) Piecewise {
-  return p
+  return compose(p, q, minMaxCompose(&p, &q, true))
 }
 
 // Return a Piecewise that (for all integers x >= 1) takes on the 
 // greater of p(x) and q(x).  
 func (p Piecewise) Max(q Piecewise) Piecewise {
-  return p
+  return compose(p, q, minMaxCompose(&p, &q, false))
 }
 
 // Used for calculating Min() and Max().  Given two Piecewise (A and B), 
@@ -194,41 +194,146 @@ func compose(a Piecewise, b Piecewise, comp composePiecewise) Piecewise {
   return result
 }
 
-// Returns a composePiecewise that can be used to produce Min(a,b)
-func minCompose(a, b Piecewise) composePiecewise {
-  var takeFrom *Piecewise
-  var takeFromA bool
+// For two Piecewise functions, and computing a Min() or Max(), return true
+// if the first (a) should be used, and false if the second(b) should be 
+// used.
+func minMaxTakeFromFirst(a, b *Piecewise, isMin bool) bool {
 
   aStart, bStart := a.Eval(1), b.Eval(1)
 
   switch {
   case aStart < bStart:
-    takeFromA = true
+    return true
 
   case bStart < aStart:
-    takeFromA = false
+    return false
 
-  // They intersect at x=1, so take the one with the smaller slope, or 
+  // They intersect at x=1, so take the one with the smaller slope, or
   // pick a if they coincide.
   default:
-    switch { 
+    switch {
       case a.segments[0].f.a < b.segments[0].f.a:
-        takeFromA = true
+        return true
       case b.segments[0].f.a > a.segments[0].f.a:
-        takeFromA = false
+        return false
       default:
-        takeFromA = true
+        return true
     }
-  } 
-
-  if takeFromA {
-    takeFrom = &a
-  } else {
-    takeFrom = &b
   }
 }
 
-// Returns a composePiecewise that can be used to produce Max(a,b)
-func maxCompose(a, b Piecewise) composePiecewise {
-  return composePiecewise{true, []uint64{1}}
+// Advance the segment whose lowerBound occurs first, moving left to right,
+// or advance both if the lowerBounds coincide.
+func advanceIndexes(a, b *Piecewise, aIndex, bIndex *int, 
+                    aEnd, bEnd int, nextIntersection *uint64) bool {
+  switch {
+  case *aIndex < aEnd && *bIndex < bEnd:
+    switch {
+    case a.segments[*aIndex + 1].lowerBound ==
+         b.segments[*bIndex + 1].lowerBound:
+      *nextIntersection = a.segments[*aIndex + 1].lowerBound
+      *aIndex++
+      *bIndex++
+    case a.segments[*aIndex + 1].lowerBound <
+         b.segments[*bIndex + 1].lowerBound:
+      *nextIntersection = a.segments[*aIndex + 1].lowerBound
+      *aIndex++
+    default:
+      *nextIntersection = b.segments[*bIndex + 1].lowerBound
+      *bIndex++
+    }
+
+  case *aIndex == aEnd && *bIndex < bEnd:
+    if *bIndex < bEnd { 
+      *nextIntersection = b.segments[*bIndex + 1].lowerBound
+    } else {
+      *nextIntersection = 0
+    }
+    *bIndex++
+
+  case *bIndex == bEnd && *aIndex < aEnd:
+    if *aIndex < aEnd { 
+      *nextIntersection = a.segments[*aIndex + 1].lowerBound
+    } else {
+      *nextIntersection = 0
+    }
+    *aIndex++
+
+  default:
+    *nextIntersection = 0
+    return true
+  }
+
+  return false
+}
+
+func insertIntersection(fa, fb Linear, firstIntersection uint64, 
+                        nextIntersection uint64, comp *composePiecewise,
+                        takeFromA *bool, isMin bool) {
+  var lineCompare LinearCompare
+
+  // Compare fa to fb over the given segment
+  if nextIntersection == 0 {
+    lineCompare = fa.CompareFrom(fb, firstIntersection)
+  } else {
+    lineCompare = fa.CompareBetween(fb, firstIntersection, 
+                                    nextIntersection - 1) 
+  }
+
+  aIsMin := (isMin == *takeFromA)
+
+  switch {
+  case aIsMin && lineCompare == LINEAR_COMPARE_GREATER_OR_EQUAL:
+    fallthrough
+  case !aIsMin && lineCompare == LINEAR_COMPARE_LESS_OR_EQUAL:
+    *takeFromA = !*takeFromA
+    comp.switchIndex = append(comp.switchIndex, firstIntersection)
+
+  case aIsMin && lineCompare == LINEAR_COMPARE_INTERSECTS:
+    fallthrough
+  case !aIsMin && lineCompare == LINEAR_COMPARE_INTERSECTS:
+    *takeFromA = !*takeFromA
+
+    lineIntersect := fa.Intersection(fb)
+    if lineIntersect >= firstIntersection && 
+       (lineIntersect + 1 < nextIntersection || nextIntersection == 0) { 
+      comp.switchIndex = append(comp.switchIndex, lineIntersect + 1)
+    }
+  }
+}
+
+
+
+// Returns a composePiecewise that can be used to produce Min(a,b)
+func minMaxCompose(a, b *Piecewise, isMin bool) composePiecewise {
+  // var takeFrom *Piecewise
+  takeFromA := minMaxTakeFromFirst(a, b, isMin)
+ 
+  result := composePiecewise{takeFromA, []uint64{}}
+ 
+  aIndex, aEnd := 0, len(a.segments) - 1
+  bIndex, bEnd := 0, len(b.segments) - 1
+  lastIntersection, nextIntersection := uint64(1), uint64(1)
+  done := false
+
+  for !done { 
+    fmt.Printf("aIndex=%d / %d, bIndex=%d / %d\n", aIndex, aEnd, bIndex, bEnd)
+
+    curAIndex := aIndex
+    curBIndex := bIndex
+
+    done = advanceIndexes(a, b, &aIndex, &bIndex, aEnd, bEnd, 
+      &nextIntersection)
+    fmt.Printf("%s, %s check between %d and %d\n", 
+      a.segments[curAIndex].f, 
+      b.segments[curBIndex].f, lastIntersection, nextIntersection)
+
+    insertIntersection(a.segments[curAIndex].f, b.segments[curBIndex].f,
+                       lastIntersection, nextIntersection, &result,
+                       &takeFromA, isMin)
+
+    lastIntersection = nextIntersection
+  }
+
+  return result
 }
