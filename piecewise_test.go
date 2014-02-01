@@ -1,6 +1,7 @@
 package searchcost
 
 import "fmt"
+import "math/rand"
 import "reflect"
 import "testing"
 
@@ -64,53 +65,72 @@ func TestPiecewiseString(t *testing.T) {
   }
 }
 
-var piecewiseMinMaxTests = []struct {
-  a           Piecewise
-  b           Piecewise
-}{
-   { Piecewise{[]PiecewiseSegment{
-       PiecewiseSegment{1, Linear{2,3}},
-     }},
-     Piecewise{[]PiecewiseSegment{
-       PiecewiseSegment{1, Linear{2,3}},
-     }},
-   },
-   { Piecewise{[]PiecewiseSegment{
-       PiecewiseSegment{1, Linear{4,0}},
-       PiecewiseSegment{5, Linear{3,5}},
-     }},
-     Piecewise{[]PiecewiseSegment{
-       PiecewiseSegment{1, Linear{3,5}},
-       PiecewiseSegment{5, Linear{4,0}},
-     }},
-   },
-   { Piecewise{[]PiecewiseSegment{
-       PiecewiseSegment{1, Linear{7,12}},
-       PiecewiseSegment{3, Linear{4,19}},
-       PiecewiseSegment{7, Linear{2,32}},
-     }},
-     Piecewise{[]PiecewiseSegment{
-       PiecewiseSegment{1, Linear{0,52}},
-     }},
-   },
+type piecewisePair struct {
+  a Piecewise
+  b Piecewise
 }
+
+var piecewiseMinMaxTests = []piecewisePair {
+  { Piecewise{[]PiecewiseSegment{
+      PiecewiseSegment{1, Linear{2,3}},
+    }},
+    Piecewise{[]PiecewiseSegment{
+      PiecewiseSegment{1, Linear{2,3}},
+    }},
+  },
+  { Piecewise{[]PiecewiseSegment{
+      PiecewiseSegment{1, Linear{4,0}},
+      PiecewiseSegment{5, Linear{3,5}},
+    }},
+    Piecewise{[]PiecewiseSegment{
+      PiecewiseSegment{1, Linear{3,5}},
+      PiecewiseSegment{5, Linear{4,0}},
+    }},
+  },
+  { Piecewise{[]PiecewiseSegment{
+      PiecewiseSegment{1, Linear{7,12}},
+      PiecewiseSegment{3, Linear{4,19}},
+      PiecewiseSegment{7, Linear{2,32}},
+    }},
+    Piecewise{[]PiecewiseSegment{
+      PiecewiseSegment{1, Linear{0,52}},
+    }},
+  },
+  // { Piecewise{[]PiecewiseSegment{
+      // PiecewiseSegment{1, Linear{5,3}},
+      // PiecewiseSegment{9, Linear{6,1}},
+    // }},
+    // Piecewise{[]PiecewiseSegment{
+      // PiecewiseSegment{1, Linear{7,0}},
+      // PiecewiseSegment{9, Linear{7,1}},
+    // }},
+  // },
+}
+
 
 const checkDistancePastBound = 5;
 
 func TestPiecewiseMin(t *testing.T) { 
-  DoTestPiecewiseMinMax(t, "Min", true)
+  DoTestPiecewiseMinMax(t, piecewiseMinMaxTests, "Min", true)
 }
 
 func TestPiecewiseMax(t *testing.T) { 
-  DoTestPiecewiseMinMax(t, "Max", false)
+  DoTestPiecewiseMinMax(t, piecewiseMinMaxTests, "Max", false)
 }
 
 
-func DoTestPiecewiseMinMax(t *testing.T, minMaxStr string, isMin bool) {
+func DoTestPiecewiseMinMax(t *testing.T, pairs []piecewisePair, 
+  minMaxStr string, isMin bool) {
   // Test the solution's correctness from x=1 until a few values
   // past the larger lowerBound.
-  for _, test := range piecewiseMinMaxTests {
-    min := test.a.Min(test.b)
+  var val Piecewise
+
+  for _, test := range pairs {
+    if (isMin) { 
+      val = test.a.Min(test.b)
+    } else {
+      val = test.a.Max(test.b)
+    }
 
     boundA := test.a.LastBound()
     boundB := test.b.LastBound()
@@ -126,23 +146,77 @@ func DoTestPiecewiseMinMax(t *testing.T, minMaxStr string, isMin bool) {
     for x := uint64(1); x <= lastCheck; x++ {
       va := test.a.Eval(x)
       vb := test.b.Eval(x)
-      vc := min.Eval(x)
+      vc := val.Eval(x)
  
       if (va <= vb) == isMin {
         if va != vc {
-          t.Error(fmt.Sprintf("%s(%s ;; %s) at x=%d, expected %d, was %d\n", 
-                  minMaxStr, test.a, test.b, x, va, vc))
+          t.Error(fmt.Sprintf("%s(%s ;; %s)=%s at x=%d, expected %d, was " + 
+                  "%d [[compose=%s]]\n", minMaxStr, test.a, test.b, val, 
+                  x, va, vc, minMaxCompose(&test.a, &test.b, isMin)))
         }
       } else {
         if vb != vc {
-          t.Error(fmt.Sprintf("%s(%s ;; %s) at x=%d, expected %d, was %d\n", 
-                  minMaxStr, test.a, test.b, x, vb, vc))
+          t.Error(fmt.Sprintf("%s(%s ;; %s)=%s at x=%d, expected %d, was " + 
+                  "%d [[compose=%s]]\n", minMaxStr, test.a, test.b, val, 
+                  x, vb, vc, minMaxCompose(&test.a, &test.b, isMin)))
         } 
       }
     }
   }
 }
 
+func TestRandomMinMax(t *testing.T) {
+  rand.NewSource(99)
+
+  for i := 0; i < 10000; i++ { 
+    f1 := RandomPiecewise(1, 10, uint64(1), uint64(10), uint64(0), uint64(8), uint64(0), uint64(8))
+    f2 := RandomPiecewise(1, 10, uint64(1), uint64(10), uint64(0), uint64(8), uint64(0), uint64(8))
+    // fmt.Printf("[[[ f1=%s, f2=%s ]]]\n", f1.String(), f2.String())
+
+    DoTestPiecewiseMinMax(t, []piecewisePair{piecewisePair{f1, f2}}, 
+      "Min", true)
+    DoTestPiecewiseMinMax(t, []piecewisePair{piecewisePair{f1, f2}}, 
+      "Max", false)
+  }
+}
+
+
+var minMaxComposeTests = []struct {
+  a         Piecewise
+  b         Piecewise
+  expectMin composePiecewise
+  expectMax composePiecewise
+}{
+  { Piecewise{[]PiecewiseSegment{
+       PiecewiseSegment{1, Linear{4,7}},
+     }},
+    Piecewise{[]PiecewiseSegment{
+       PiecewiseSegment{1, Linear{6,6}},
+       PiecewiseSegment{3, Linear{5,0}},
+       PiecewiseSegment{12, Linear{4,3}},
+     }},
+    composePiecewise{true, []uint64{3,8,12}}, 
+    composePiecewise{false, []uint64{3,8,12}}, 
+  },
+}
+
+func TestMinMaxCompose(t *testing.T) {
+  fmt.Printf("STARTING\n");
+  for _, test := range minMaxComposeTests {
+    result := minMaxCompose(&test.a, &test.b, true)
+    if !reflect.DeepEqual(result, test.expectMin) {
+      t.Error(fmt.Sprintf("minMaxCompose(%s;%s;%s) expected %s, was %s",
+              test.a, test.b, "(Min)", test.expectMin, result))
+    }
+
+    result = minMaxCompose(&test.a, &test.b, false)
+    if !reflect.DeepEqual(result, test.expectMax) {
+      t.Error(fmt.Sprintf("minMaxCompose(%s,%s,%s) expected %s, was %s",
+              test.a, test.b, "(Max)", test.expectMin, result))
+    }
+  }
+  fmt.Printf("DONE\n");
+}
 
 var piecewisecomposeTests = []struct {
   a       Piecewise
@@ -199,6 +273,22 @@ var piecewisecomposeTests = []struct {
        PiecewiseSegment{20, Linear{7,1}},
      }},
    },
+
+  { Piecewise{[]PiecewiseSegment{
+      PiecewiseSegment{1, Linear{5,3}},
+      PiecewiseSegment{9, Linear{6,1}},
+    }},
+    Piecewise{[]PiecewiseSegment{
+      PiecewiseSegment{1, Linear{7,0}},
+      PiecewiseSegment{9, Linear{7,1}},
+    }},
+    composePiecewise{false, []uint64{2}},
+    Piecewise{[]PiecewiseSegment{
+      PiecewiseSegment{1, Linear{7,0}},
+      PiecewiseSegment{2, Linear{5,3}},
+      PiecewiseSegment{9, Linear{6,1}},
+    }},
+  },
 }
 
 func TestCompose(t *testing.T) {
@@ -211,3 +301,28 @@ func TestCompose(t *testing.T) {
   }
 }
 
+func findNextValue(val *map[int]Piecewise, n int) {
+  // var minPiecewise *Piecewise = nil
+  for k := (n + 1) / 2; k < n; k++ {
+    mid := Piecewise{[]PiecewiseSegment{
+      PiecewiseSegment{1,Linear{1,uint64(k)}},
+    }}
+    left := ((*val)[k-1])
+    right := (*val)[n-k-1].OffsetX(uint64(k+1))
+    fmt.Printf("%d: [%s] + [%s] + [%s]\n", k, mid, left, right)
+  }
+}
+
+func TestIterfunc(t *testing.T) {
+  piecewise_map := make(map[int]Piecewise)
+  piecewise_map[0] = Piecewise{[]PiecewiseSegment{
+    PiecewiseSegment{1,Linear{0,0}},
+  },}
+  piecewise_map[1] = Piecewise{[]PiecewiseSegment{
+    PiecewiseSegment{1,Linear{1,0}},
+  },}
+  piecewise_map[2] = Piecewise{[]PiecewiseSegment{
+    PiecewiseSegment{1,Linear{1,1}},
+  },}
+  findNextValue(&piecewise_map, 3)
+}

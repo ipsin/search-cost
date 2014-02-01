@@ -21,4 +21,4 @@ F(x,2) = x + 1
 
 F(x,3) = 2x + 2
 
-F(x,n) = min(k + max(F(x,k-1) + F(x+k+1, n-k-1), **∀** ⌈n/2⌉ <= k < n)
+F(x,n) = min(x+k + max(F(x,k-1) + F(x+k+1, n-k-1), **∀** ⌈n/2⌉ <= k < n)
