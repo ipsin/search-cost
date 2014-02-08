@@ -21,4 +21,8 @@ F(x,2) = x + 1
 
 F(x,3) = 2x + 2
 
-F(x,n) = min(x+k + max(F(x,k-1) + F(x+k+1, n-k-1), **∀** ⌈n/2⌉ <= k < n)
+F(x,n) = min(x + k + max(F(x,k-1), F(x+k+1, n-k-1)), **∀** ⌈n/2⌉ <= k < n)
+
+Phrased intuitively, this is the cost of picking (x+k), plus the 
+worst of the worst-case cost of the recursive picks on either size.  
+Finding the k that minimizes the sum gives the value of F(x,n).

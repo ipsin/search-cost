@@ -1,6 +1,7 @@
 package searchcost
 
 import "fmt"
+import "reflect"
 import "math/rand"
 import "strings"
 
@@ -74,6 +75,10 @@ func (p Piecewise) Eval(x uint64) uint64 {
   return p.segments[p.ActiveSegment(x)].f.Eval(x)
 }
 
+func (p Piecewise) Equal(q Piecewise) bool {
+  return reflect.DeepEqual(p,q)
+}
+
 // If p=f(x), return a piecewise that takes the value q=f(x+n).  This
 // result can have fewer segments, if n is greater than the lower bounds of
 // some of p's segments.
@@ -117,6 +122,32 @@ func (p Piecewise) OffsetY(n uint64) Piecewise {
   for i := 0; i < len(p.segments); i++ {  
     result.segments[i] = PiecewiseSegment{p.segments[i].lowerBound,
         Linear{p.segments[i].f.a, p.segments[i].f.b + n}}
+  }
+
+  return result
+}
+
+func (a Piecewise) Add(b Piecewise) Piecewise { 
+  result := Piecewise{[]PiecewiseSegment{}}
+
+  aIndex, aEnd := 0, len(a.segments) - 1
+  bIndex, bEnd := 0, len(b.segments) - 1
+  lastIntersection, nextIntersection := uint64(1), uint64(1)
+  done := false
+
+  for !done {
+    curAIndex := aIndex
+    curBIndex := bIndex
+
+    done = advanceIndexes(&a, &b, &aIndex, &bIndex, aEnd, bEnd, 
+      &nextIntersection)
+
+    result.segments = append(result.segments,
+      PiecewiseSegment{lastIntersection, 
+        Linear{a.segments[curAIndex].f.a + b.segments[curBIndex].f.a, 
+               a.segments[curAIndex].f.b + b.segments[curBIndex].f.b}})
+
+    lastIntersection = nextIntersection
   }
 
   return result

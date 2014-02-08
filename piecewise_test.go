@@ -3,6 +3,7 @@ package searchcost
 import "fmt"
 import "math/rand"
 import "reflect"
+import "strconv"
 import "testing"
 
 func TestPiecewiseActiveSegment(t *testing.T) {
@@ -201,7 +202,6 @@ var minMaxComposeTests = []struct {
 }
 
 func TestMinMaxCompose(t *testing.T) {
-  fmt.Printf("STARTING\n");
   for _, test := range minMaxComposeTests {
     result := minMaxCompose(&test.a, &test.b, true)
     if !reflect.DeepEqual(result, test.expectMin) {
@@ -215,7 +215,6 @@ func TestMinMaxCompose(t *testing.T) {
               test.a, test.b, "(Max)", test.expectMin, result))
     }
   }
-  fmt.Printf("DONE\n");
 }
 
 var piecewisecomposeTests = []struct {
@@ -302,15 +301,49 @@ func TestCompose(t *testing.T) {
 }
 
 func findNextValue(val *map[int]Piecewise, n int) {
-  // var minPiecewise *Piecewise = nil
-  for k := (n + 1) / 2; k < n; k++ {
+  var minPiecewise *Piecewise = nil
+  minHits := []int{}
+
+  // HACK: FIXME
+  for k := 1; k < n; k++ {
     mid := Piecewise{[]PiecewiseSegment{
       PiecewiseSegment{1,Linear{1,uint64(k)}},
     }}
     left := ((*val)[k-1])
     right := (*val)[n-k-1].OffsetX(uint64(k+1))
-    fmt.Printf("%d: [%s] + [%s] + [%s]\n", k, mid, left, right)
+
+    sum := mid.Add(left.Max(right))
+    // fmt.Printf("%d: [%s] + [%s] + [%s] ==> %s\n", k, mid, left, right, sum)
+
+    if minPiecewise == nil {
+      minPiecewise = &sum
+      minHits = []int{k,}
+    } else {
+      t := sum.Min(*minPiecewise)
+      if t.Equal(*minPiecewise) { 
+        minHits = append(minHits, k)
+      } else {
+        minHits = []int{}
+      }
+
+      minPiecewise = &t
+    }
   }
+
+  isNormal := false
+  minHitsStr := make([]string, len(minHits))
+  for i, _ := range(minHitsStr) { 
+    minHitsStr[i] = strconv.Itoa(minHits[i])
+    if minHits[i] == n - 2 {
+      isNormal = true
+    }
+  }
+
+  if !isNormal { 
+    fmt.Printf("%d is WEIRD\n", n)
+  }
+  fmt.Printf("F(x,%d) = %s\n", n, (*minPiecewise).String())
+  (*val)[n] = *minPiecewise
 }
 
 func TestIterfunc(t *testing.T) {
@@ -324,5 +357,11 @@ func TestIterfunc(t *testing.T) {
   piecewise_map[2] = Piecewise{[]PiecewiseSegment{
     PiecewiseSegment{1,Linear{1,1}},
   },}
-  findNextValue(&piecewise_map, 3)
+  piecewise_map[3] = Piecewise{[]PiecewiseSegment{
+    PiecewiseSegment{1,Linear{2,2}},
+  },}
+
+  for t := 4; t <= 50; t++ {  
+    findNextValue(&piecewise_map, t)
+  }
 }
