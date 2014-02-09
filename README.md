@@ -55,3 +55,9 @@ F(x,29) = 3x+76 (1<=x<3), 4x+74 (3<=x<11), 5x+64 (11<=x<27), 4x+90 (x>=27)
 F(x,30) = 4x+78 (1<=x<10), 5x+69 (10<=x<26), 4x+94 (x>=26)
 F(x,31) = 4x+82 (1<=x<9), 5x+74 (9<=x<21), 6x+54 (21<=x<23), 4x+98 (23<=x<69), 5x+30 (x>=69)
 ```
+
+One useful inequality that seems to hold:
+
+F(x,n) &ge; tx + t(n + 1 - 2<sup>t</sup>) + n - 1
+
+Where t=&lfloor;log<sub>2</sub>(t+1)&rfloor;
