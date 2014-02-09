@@ -2,6 +2,7 @@ package searchcost
 
 import "fmt"
 import "reflect"
+import "strconv"
 import "math/rand"
 import "strings"
 
@@ -21,8 +22,13 @@ type PiecewiseSegment struct {
   f          Linear
 }
 
+type PiecewiseSearchCost struct {
+  // Array of F(x,i) where i is the index of this array.
+  fi []Piecewise
+}
+
 // Find the PiecewiseSegment 
-func (p Piecewise) ActiveSegment(x uint64) int {
+func (p *Piecewise) ActiveSegment(x uint64) int {
   // x = 1 will always be the start of the first segment.
   if x == 1 {
     return 0
@@ -67,22 +73,22 @@ func (p Piecewise) ActiveSegment(x uint64) int {
   return -1 
 }
 
-func (p Piecewise) LastBound() uint64 {
+func (p *Piecewise) LastLowerBound() uint64 {
   return p.segments[len(p.segments) - 1].lowerBound
 }
 
-func (p Piecewise) Eval(x uint64) uint64 {
+func (p *Piecewise) Eval(x uint64) uint64 {
   return p.segments[p.ActiveSegment(x)].f.Eval(x)
 }
 
-func (p Piecewise) Equal(q Piecewise) bool {
+func (p *Piecewise) Equal(q *Piecewise) bool {
   return reflect.DeepEqual(p,q)
 }
 
 // If p=f(x), return a piecewise that takes the value q=f(x+n).  This
 // result can have fewer segments, if n is greater than the lower bounds of
 // some of p's segments.
-func (p Piecewise) OffsetX(n uint64) Piecewise {
+func (p *Piecewise) OffsetX(n uint64) Piecewise {
   result := Piecewise{[]PiecewiseSegment{}}
   var nextBound uint64
 
@@ -116,7 +122,7 @@ func (p Piecewise) OffsetX(n uint64) Piecewise {
 }
 
 // If p=f(x), return a piecewise that takes the value q=f(x)+n.
-func (p Piecewise) OffsetY(n uint64) Piecewise { 
+func (p *Piecewise) OffsetY(n uint64) Piecewise { 
   result := Piecewise{make([]PiecewiseSegment, len(p.segments))}
 
   for i := 0; i < len(p.segments); i++ {  
@@ -127,7 +133,7 @@ func (p Piecewise) OffsetY(n uint64) Piecewise {
   return result
 }
 
-func (a Piecewise) Add(b Piecewise) Piecewise { 
+func (a *Piecewise) Add(b *Piecewise) Piecewise { 
   result := Piecewise{[]PiecewiseSegment{}}
 
   aIndex, aEnd := 0, len(a.segments) - 1
@@ -139,7 +145,7 @@ func (a Piecewise) Add(b Piecewise) Piecewise {
     curAIndex := aIndex
     curBIndex := bIndex
 
-    done = advanceIndexes(&a, &b, &aIndex, &bIndex, aEnd, bEnd, 
+    done = advanceIndexes(a, b, &aIndex, &bIndex, aEnd, bEnd, 
       &nextIntersection)
 
     result.segments = append(result.segments,
@@ -153,7 +159,7 @@ func (a Piecewise) Add(b Piecewise) Piecewise {
   return result
 }
 
-func (p Piecewise) String() string {
+func (p *Piecewise) String() string {
   if p.segments == nil || len(p.segments) == 0 {
     return "[EMPTY PIECEWISE]"
   }
@@ -197,15 +203,148 @@ func RandomPiecewise(minSegments int, maxSegments int, minStep uint64,
 
 // Return a Piecewise that (for all integers x >= 1) takes on the 
 // lesser of p(x) and q(x).  
-func (p Piecewise) Min(q Piecewise) Piecewise {
-  return compose(p, q, minMaxCompose(&p, &q, true))
+func (p *Piecewise) Min(q *Piecewise) Piecewise {
+  return compose(p, q, minMaxCompose(p, q, true))
 }
 
 // Return a Piecewise that (for all integers x >= 1) takes on the 
 // greater of p(x) and q(x).  
-func (p Piecewise) Max(q Piecewise) Piecewise {
-  return compose(p, q, minMaxCompose(&p, &q, false))
+func (p *Piecewise) Max(q *Piecewise) Piecewise {
+  return compose(p, q, minMaxCompose(p, q, false))
 }
+
+func CreatePiecewiseSearchCost() PiecewiseSearchCost {
+  return PiecewiseSearchCost{[]Piecewise{
+    Piecewise{[]PiecewiseSegment{
+      PiecewiseSegment{1,Linear{0,0}},
+    },},
+    Piecewise{[]PiecewiseSegment{
+      PiecewiseSegment{1,Linear{1,0}},
+    },},
+    Piecewise{[]PiecewiseSegment{
+      PiecewiseSegment{1,Linear{1,1}},
+    },},
+    Piecewise{[]PiecewiseSegment{
+      PiecewiseSegment{1,Linear{2,2}},
+    },},
+  }}
+}
+
+// Produce a Linear with the same slope as the last Piecewise, and greater
+// than or equal to it at all points.
+func (p *Piecewise) UpperBound() Linear {
+  seg_end := len(p.segments) - 1
+  upper_a := p.segments[seg_end].f.a
+  upper_b := p.segments[seg_end].f.b
+  var start,end uint64
+  var startEval,endEval uint64
+
+  for i := 0; i < seg_end - 1; i++ { 
+    start = p.segments[i].lowerBound
+    end = p.segments[i + 1].lowerBound - 1
+  
+    startEval = p.segments[i].f.Eval(start) 
+    endEval = p.segments[i].f.Eval(end) 
+
+    if upper_a * start + upper_b < startEval {
+      upper_b = startEval - upper_a * start
+    }
+    if upper_a * end + upper_b < endEval {
+      upper_b = endEval - upper_a * end
+    }
+  }
+
+  return Linear{upper_a, upper_b}
+}
+
+// Produce a Linear with the same slope as the last Piecewise, and less 
+// than or equal to it at all points.
+func (p *Piecewise) LowerBound() Linear {
+  seg_end := len(p.segments) - 1
+  lower_a := p.segments[seg_end].f.a
+  lower_b := p.segments[seg_end].f.b
+  var start,end uint64
+  var startEval,endEval uint64
+
+  for i := 0; i < seg_end - 1; i++ {
+    start = p.segments[i].lowerBound
+    end = p.segments[i + 1].lowerBound - 1
+
+    startEval = p.segments[i].f.Eval(start)
+    endEval = p.segments[i].f.Eval(end)
+
+    if lower_a * start + lower_b > startEval { 
+      lower_b = startEval - lower_a * start
+    }
+
+    if lower_a * end + lower_b > endEval {
+      lower_b = endEval - lower_a * end
+    }
+  }
+
+  return Linear{lower_a, lower_b}
+}
+
+
+// Grow until p.fi[v] is defined
+func (p *PiecewiseSearchCost) Grow(v int) {
+  for len(p.fi) <= v {
+    p.GrowOnce()
+  }
+}
+
+func (p *PiecewiseSearchCost) GrowOnce() {
+  var minPiecewise *Piecewise = nil
+  minHits := []int{}
+  n := len(p.fi)
+
+  for k := 1; k < n; k++ {
+    mid := Piecewise{[]PiecewiseSegment{
+      PiecewiseSegment{1,Linear{1,uint64(k)}},
+    }}
+    left := p.fi[k-1]
+    right := p.fi[n-k-1].OffsetX(uint64(k+1))
+
+    leftRightMax := left.Max(&right)
+
+    sum := mid.Add(&leftRightMax)
+    if minPiecewise == nil {
+      minPiecewise = &sum
+      minHits = []int{k,}
+    } else {
+      t := sum.Min(minPiecewise)
+      if t.Equal(minPiecewise) {
+        minHits = append(minHits, k)
+      } else {
+        minHits = []int{}
+      }
+
+      minPiecewise = &t
+    }
+  }
+
+  isNormal := false
+  minHitsStr := make([]string, len(minHits))
+  for i, _ := range(minHitsStr) {
+    minHitsStr[i] = strconv.Itoa(minHits[i])
+    if minHits[i] == n - 2 {
+      isNormal = true
+    }
+  }
+
+  if !isNormal {
+    fmt.Printf("%d is WEIRD\n", n)
+  }
+  fmt.Printf("F(x,%d) = %s\n", n, minPiecewise.String())
+
+  lb := minPiecewise.LowerBound()
+  ub := minPiecewise.UpperBound()
+
+  fmt.Printf("%s <= F(x,%d) <= %s\n", lb.String(), n, 
+    ub.String())
+  p.fi = append(p.fi, *minPiecewise) 
+}
+
 
 // Used for calculating Min() and Max().  Given two Piecewise (A and B), 
 // the composition moving left-to-right (starting with x=1) begins with 
@@ -219,13 +358,13 @@ type composePiecewise struct {
 }
 
 // Produce a Piecewise using the given composePiecewise formula (see above)
-func compose(a Piecewise, b Piecewise, comp composePiecewise) Piecewise {
+func compose(a *Piecewise, b *Piecewise, comp composePiecewise) Piecewise {
   // In the trivial case where we never switch, return the desired Piecewise
   if len(comp.switchIndex) == 0 {
     if comp.startA {
-      return a
+      return *a
     } else {
-      return b
+      return *b
     }
   }
 
@@ -234,9 +373,9 @@ func compose(a Piecewise, b Piecewise, comp composePiecewise) Piecewise {
   var fromPiecewise *Piecewise
 
   if fromA {
-    fromPiecewise = &a 
+    fromPiecewise = a 
   } else {
-    fromPiecewise = &b
+    fromPiecewise = b
   }
 
   lastSwitchPoint := uint64(1)
@@ -274,9 +413,9 @@ func compose(a Piecewise, b Piecewise, comp composePiecewise) Piecewise {
     // of new segments and continue reading
     fromA = !fromA
     if fromA { 
-      fromPiecewise = &a 
+      fromPiecewise = a 
     } else {
-      fromPiecewise = &b
+      fromPiecewise = b
     }
 
     lastSwitchPoint = value
@@ -384,9 +523,9 @@ func insertIntersection(fa, fb Linear, firstIntersection uint64,
 
   // Compare fa to fb over the given segment
   if nextIntersection == 0 {
-    lineCompare = fa.CompareFrom(fb, firstIntersection)
+    lineCompare = fa.CompareFrom(&fb, firstIntersection)
   } else {
-    lineCompare = fa.CompareBetween(fb, firstIntersection, 
+    lineCompare = fa.CompareBetween(&fb, firstIntersection, 
                                     nextIntersection - 1) 
   }
   // fmt.Printf("Comparing between %d and %d, linefrom %d\n", firstIntersection,
@@ -404,9 +543,9 @@ func insertIntersection(fa, fb Linear, firstIntersection uint64,
   case aIsMin && lineCompare == LINEAR_COMPARE_INTERSECTS:
     fallthrough
   case !aIsMin && lineCompare == LINEAR_COMPARE_INTERSECTS:
-    lineIntersect := fa.Intersection(fb)
+    lineIntersect := fa.Intersection(&fb)
 
-    lineCompare = fa.CompareBetween(fb, firstIntersection, lineIntersect)
+    lineCompare = fa.CompareBetween(&fb, firstIntersection, lineIntersect)
 
     switch { 
     case aIsMin && lineCompare == LINEAR_COMPARE_GREATER_OR_EQUAL:
@@ -421,9 +560,6 @@ func insertIntersection(fa, fb Linear, firstIntersection uint64,
       *takeFromA = !*takeFromA
       comp.switchIndex = append(comp.switchIndex, lineIntersect + 1)
     }
-
-    // fmt.Printf("%d,%d: Intersection at %d\n", firstIntersection,
-    //            nextIntersection, lineIntersect)
   }
 }
 

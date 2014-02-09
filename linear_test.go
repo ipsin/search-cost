@@ -71,7 +71,7 @@ var compareTests = []struct {
 
 func TestLinearCompare(t *testing.T) {
   for _, test := range compareTests {
-    cmp := test.a.Compare(test.b)
+    cmp := test.a.Compare(&test.b)
     if test.expect != cmp { 
       t.Error(fmt.Sprintf("%s vs %s expected %d, actual %d",
         test.a.String(), test.b.String(), test.expect, cmp))
@@ -89,7 +89,7 @@ var compareFromTests = []struct {
 
 func TestLinearCompareFrom(t *testing.T) {
   for _, test := range compareFromTests {
-    cmp := test.a.CompareFrom(test.b, test.n)
+    cmp := test.a.CompareFrom(&test.b, test.n)
     if test.expect != cmp {
       t.Error(fmt.Sprintf("%s vs %s for x >= %d: expected %d, actual %d",
         test.a.String(), test.b.String(), test.n, test.expect, cmp))
@@ -110,7 +110,7 @@ var compareLinearIntersections = []struct {
 
 func TestLinearIntersections(t *testing.T) {
   for _, test := range compareLinearIntersections {
-    tx := test.a.Intersection(test.b)
+    tx := test.a.Intersection(&test.b)
     if tx != test.x {
       t.Error(fmt.Sprintf("%s intersection %s, expect %d (was %d)",
         test.a, test.b, test.x, tx))

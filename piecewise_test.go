@@ -3,7 +3,6 @@ package searchcost
 import "fmt"
 import "math/rand"
 import "reflect"
-import "strconv"
 import "testing"
 
 func TestPiecewiseActiveSegment(t *testing.T) {
@@ -128,13 +127,13 @@ func DoTestPiecewiseMinMax(t *testing.T, pairs []piecewisePair,
 
   for _, test := range pairs {
     if (isMin) { 
-      val = test.a.Min(test.b)
+      val = test.a.Min(&test.b)
     } else {
-      val = test.a.Max(test.b)
+      val = test.a.Max(&test.b)
     }
 
-    boundA := test.a.LastBound()
-    boundB := test.b.LastBound()
+    boundA := test.a.LastLowerBound()
+    boundB := test.b.LastLowerBound()
     var lastCheck uint64
 
     if boundA < boundB {
@@ -172,7 +171,6 @@ func TestRandomMinMax(t *testing.T) {
   for i := 0; i < 10000; i++ { 
     f1 := RandomPiecewise(1, 10, uint64(1), uint64(10), uint64(0), uint64(8), uint64(0), uint64(8))
     f2 := RandomPiecewise(1, 10, uint64(1), uint64(10), uint64(0), uint64(8), uint64(0), uint64(8))
-    // fmt.Printf("[[[ f1=%s, f2=%s ]]]\n", f1.String(), f2.String())
 
     DoTestPiecewiseMinMax(t, []piecewisePair{piecewisePair{f1, f2}}, 
       "Min", true)
@@ -292,7 +290,7 @@ var piecewisecomposeTests = []struct {
 
 func TestCompose(t *testing.T) {
   for _, test := range piecewisecomposeTests {
-    result := compose(test.a, test.b, test.compose)
+    result := compose(&test.a, &test.b, test.compose)
     if !reflect.DeepEqual(result, test.expect) {
       t.Error(fmt.Sprintf("Compose(%s,%s) with %s expected %s, was %s", 
               test.a, test.b, test.compose, test.expect, result))
@@ -300,68 +298,12 @@ func TestCompose(t *testing.T) {
   }
 }
 
-func findNextValue(val *map[int]Piecewise, n int) {
-  var minPiecewise *Piecewise = nil
-  minHits := []int{}
-
-  // HACK: FIXME
-  for k := 1; k < n; k++ {
-    mid := Piecewise{[]PiecewiseSegment{
-      PiecewiseSegment{1,Linear{1,uint64(k)}},
-    }}
-    left := ((*val)[k-1])
-    right := (*val)[n-k-1].OffsetX(uint64(k+1))
-
-    sum := mid.Add(left.Max(right))
-    // fmt.Printf("%d: [%s] + [%s] + [%s] ==> %s\n", k, mid, left, right, sum)
-
-    if minPiecewise == nil {
-      minPiecewise = &sum
-      minHits = []int{k,}
-    } else {
-      t := sum.Min(*minPiecewise)
-      if t.Equal(*minPiecewise) { 
-        minHits = append(minHits, k)
-      } else {
-        minHits = []int{}
-      }
-
-      minPiecewise = &t
-    }
-  }
-
-  isNormal := false
-  minHitsStr := make([]string, len(minHits))
-  for i, _ := range(minHitsStr) { 
-    minHitsStr[i] = strconv.Itoa(minHits[i])
-    if minHits[i] == n - 2 {
-      isNormal = true
-    }
-  }
-
-  if !isNormal { 
-    fmt.Printf("%d is WEIRD\n", n)
-  }
-  fmt.Printf("F(x,%d) = %s\n", n, (*minPiecewise).String())
-  (*val)[n] = *minPiecewise
-}
-
 func TestIterfunc(t *testing.T) {
-  piecewise_map := make(map[int]Piecewise)
-  piecewise_map[0] = Piecewise{[]PiecewiseSegment{
-    PiecewiseSegment{1,Linear{0,0}},
-  },}
-  piecewise_map[1] = Piecewise{[]PiecewiseSegment{
-    PiecewiseSegment{1,Linear{1,0}},
-  },}
-  piecewise_map[2] = Piecewise{[]PiecewiseSegment{
-    PiecewiseSegment{1,Linear{1,1}},
-  },}
-  piecewise_map[3] = Piecewise{[]PiecewiseSegment{
-    PiecewiseSegment{1,Linear{2,2}},
-  },}
+  costs := CreatePiecewiseSearchCost()
 
-  for t := 4; t <= 50; t++ {  
-    findNextValue(&piecewise_map, t)
-  }
+  costs.Grow(100000)
+
+  // for t := 4; t <= 50; t++ {  
+    // findNextValue(&piecewise_map, t)
+  // }
 }

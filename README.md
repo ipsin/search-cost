@@ -59,5 +59,4 @@ F(x,31) = 4x+82 (1<=x<9), 5x+74 (9<=x<21), 6x+54 (21<=x<23), 4x+98 (23<=x<69), 5
 One useful inequality that seems to hold:
 
 F(x,n) &ge; tx + t(n + 1 - 2<sup>t</sup>) + n - 1
-
-Where t=&lfloor;log<sub>2</sub>(t+1)&rfloor;
+where t=floor(log<sub>2</sub>(t+1))

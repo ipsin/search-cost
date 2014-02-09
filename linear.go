@@ -16,7 +16,7 @@ const (
   LINEAR_COMPARE_INTERSECTS
 )
 
-func (l Linear) String() string {
+func (l *Linear) String() string {
   switch {
   case l.a == 0:
     return fmt.Sprintf("%d", l.b)
@@ -30,17 +30,17 @@ func (l Linear) String() string {
   return fmt.Sprintf("%dx+%d", l.a, l.b)
 }
 
-func (l Linear) Eval(x uint64) uint64 {
+func (l *Linear) Eval(x uint64) uint64 {
   return l.a * x + l.b
 }
 
 // Compare two linear values for all x >= 1
-func (l Linear) Compare(m Linear) LinearCompare {
+func (l *Linear) Compare(m *Linear) LinearCompare {
   return l.CompareFrom(m, 1)
 }
 
 // Compare two linear values for all x >= n
-func (l Linear) CompareFrom(m Linear, n uint64) LinearCompare {
+func (l *Linear) CompareFrom(m *Linear, n uint64) LinearCompare {
   ln := l.Eval(n)
   mn := m.Eval(n)
 
@@ -56,7 +56,7 @@ func (l Linear) CompareFrom(m Linear, n uint64) LinearCompare {
 }
 
 // Compare two linear values for s <= x <= t.  Requires 1 <= s <= t.
-func (l Linear) CompareBetween(m Linear, s uint64, t uint64) LinearCompare {
+func (l *Linear) CompareBetween(m *Linear, s uint64, t uint64) LinearCompare {
   ls := l.Eval(s)
   lt := l.Eval(t)
   ms := m.Eval(s)
@@ -76,7 +76,7 @@ func (l Linear) CompareBetween(m Linear, s uint64, t uint64) LinearCompare {
 // Returns the intersection of two lines, rounded down.  This will crash
 // if both have the same slope.  If the intersection point is x < 1, the
 // value 1 will be returned.
-func (l Linear) Intersection(m Linear) uint64 {
+func (l *Linear) Intersection(m *Linear) uint64 {
   numPos := m.b >= l.b
   denPos := l.a > m.a
   var num, den uint64
