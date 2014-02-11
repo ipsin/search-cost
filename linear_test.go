@@ -27,8 +27,8 @@ func TestLinearString(t *testing.T) {
 
 var evalTests = []struct {
   f     Linear
-  x     uint64
-  total uint64 // = ax + b
+  x     int64
+  total int64 // = ax + b
 }{
   {Linear{0,0}, 0, 0},
   {Linear{0,0}, 6, 0},
@@ -82,7 +82,7 @@ func TestLinearCompare(t *testing.T) {
 var compareFromTests = []struct {
   a      Linear
   b      Linear
-  n      uint64
+  n      int64
   expect LinearCompare
 }{
 }
@@ -100,7 +100,7 @@ func TestLinearCompareFrom(t *testing.T) {
 var compareLinearIntersections = []struct {
   a Linear
   b Linear
-  x uint64
+  x int64
 }{
   {Linear{5,7}, Linear{3,19}, 6},
   {Linear{5,7}, Linear{3,19}, 6},

@@ -18,7 +18,7 @@ type Piecewise struct {
 // the lowerBound of the next Piecewise (or for all x >= lowerBound, if it's
 // the last segment.
 type PiecewiseSegment struct {
-  lowerBound uint64
+  lowerBound int64
   f          Linear
 }
 
@@ -27,8 +27,14 @@ type PiecewiseSearchCost struct {
   fi []Piecewise
 }
 
+var ZERO_PIECEWISE = Piecewise{
+  []PiecewiseSegment {
+    PiecewiseSegment{1, Linear{0,0}},
+  },
+}
+
 // Find the PiecewiseSegment 
-func (p *Piecewise) ActiveSegment(x uint64) int {
+func (p *Piecewise) ActiveSegment(x int64) int {
   // x = 1 will always be the start of the first segment.
   if x == 1 {
     return 0
@@ -73,11 +79,11 @@ func (p *Piecewise) ActiveSegment(x uint64) int {
   return -1 
 }
 
-func (p *Piecewise) LastLowerBound() uint64 {
+func (p *Piecewise) LastLowerBound() int64 {
   return p.segments[len(p.segments) - 1].lowerBound
 }
 
-func (p *Piecewise) Eval(x uint64) uint64 {
+func (p *Piecewise) Eval(x int64) int64 {
   return p.segments[p.ActiveSegment(x)].f.Eval(x)
 }
 
@@ -88,9 +94,9 @@ func (p *Piecewise) Equal(q *Piecewise) bool {
 // If p=f(x), return a piecewise that takes the value q=f(x+n).  This
 // result can have fewer segments, if n is greater than the lower bounds of
 // some of p's segments.
-func (p *Piecewise) OffsetX(n uint64) Piecewise {
+func (p *Piecewise) OffsetX(n int64) Piecewise {
   result := Piecewise{[]PiecewiseSegment{}}
-  var nextBound uint64
+  var nextBound int64
 
   for i := 0; i < len(p.segments) - 1; i++ {  
     nextBound = p.segments[i + 1].lowerBound
@@ -122,7 +128,7 @@ func (p *Piecewise) OffsetX(n uint64) Piecewise {
 }
 
 // If p=f(x), return a piecewise that takes the value q=f(x)+n.
-func (p *Piecewise) OffsetY(n uint64) Piecewise { 
+func (p *Piecewise) OffsetY(n int64) Piecewise { 
   result := Piecewise{make([]PiecewiseSegment, len(p.segments))}
 
   for i := 0; i < len(p.segments); i++ {  
@@ -138,7 +144,7 @@ func (a *Piecewise) Add(b *Piecewise) Piecewise {
 
   aIndex, aEnd := 0, len(a.segments) - 1
   bIndex, bEnd := 0, len(b.segments) - 1
-  lastIntersection, nextIntersection := uint64(1), uint64(1)
+  lastIntersection, nextIntersection := int64(1), int64(1)
   done := false
 
   for !done {
@@ -154,6 +160,37 @@ func (a *Piecewise) Add(b *Piecewise) Piecewise {
                a.segments[curAIndex].f.b + b.segments[curBIndex].f.b}})
 
     lastIntersection = nextIntersection
+  }
+
+  return result
+}
+
+func (a *Piecewise) Subtract(b *Piecewise) Piecewise {
+  result := Piecewise{[]PiecewiseSegment{}}
+
+  aIndex, aEnd := 0, len(a.segments) - 1
+  bIndex, bEnd := 0, len(b.segments) - 1
+  lastIntersection, nextIntersection := int64(1), int64(1)
+  done := false
+  var prevLinear *Linear = nil
+
+  for !done {
+    curAIndex := aIndex
+    curBIndex := bIndex
+
+    done = advanceIndexes(a, b, &aIndex, &bIndex, aEnd, bEnd,
+      &nextIntersection)
+
+    nextLinear := Linear{a.segments[curAIndex].f.a - b.segments[curBIndex].f.a,
+      a.segments[curAIndex].f.b - b.segments[curBIndex].f.b}
+
+    if prevLinear == nil || !prevLinear.Equal(&nextLinear) {
+      result.segments = append(result.segments,
+        PiecewiseSegment{lastIntersection, nextLinear})
+    }
+
+    lastIntersection = nextIntersection
+    prevLinear = &nextLinear
   }
 
   return result
@@ -180,21 +217,21 @@ func (p *Piecewise) String() string {
   return strings.Join(strs, ", ")
 }
 
-func RandomPiecewise(minSegments int, maxSegments int, minStep uint64,
-  maxStep uint64, minA uint64, maxA uint64, minB uint64, 
-  maxB uint64) Piecewise {
+func RandomPiecewise(minSegments int, maxSegments int, minStep int64,
+  maxStep int64, minA int64, maxA int64, minB int64, 
+  maxB int64) Piecewise {
    
   segCount := minSegments + rand.Intn(maxSegments - minSegments)
-  currentBound := uint64(1)
+  currentBound := int64(1)
   result := Piecewise{make([]PiecewiseSegment, segCount)}
 
   for i := 0; i < segCount; i++ {  
-    a := minA + uint64(rand.Int63n(int64(maxA - minA)))
-    b := minB + uint64(rand.Int63n(int64(maxB - minB)))
+    a := minA + rand.Int63n(int64(maxA - minA))
+    b := minB + rand.Int63n(int64(maxB - minB))
     result.segments[i].f = Linear{a,b}
     result.segments[i].lowerBound = currentBound
-    currentBound += uint64((minStep + 
-      uint64(rand.Int63n(int64(maxStep - minStep)))))
+    currentBound += int64((minStep + 
+      rand.Int63n(int64(maxStep - minStep))))
   }
 
   return result
@@ -236,8 +273,8 @@ func (p *Piecewise) UpperBound() Linear {
   seg_end := len(p.segments) - 1
   upper_a := p.segments[seg_end].f.a
   upper_b := p.segments[seg_end].f.b
-  var start,end uint64
-  var startEval,endEval uint64
+  var start,end int64
+  var startEval,endEval int64
 
   for i := 0; i < seg_end - 1; i++ { 
     start = p.segments[i].lowerBound
@@ -263,8 +300,8 @@ func (p *Piecewise) LowerBound() Linear {
   seg_end := len(p.segments) - 1
   lower_a := p.segments[seg_end].f.a
   lower_b := p.segments[seg_end].f.b
-  var start,end uint64
-  var startEval,endEval uint64
+  var start,end int64
+  var startEval,endEval int64
 
   for i := 0; i < seg_end - 1; i++ {
     start = p.segments[i].lowerBound
@@ -300,10 +337,10 @@ func (p *PiecewiseSearchCost) GrowOnce() {
 
   for k := 1; k < n; k++ {
     mid := Piecewise{[]PiecewiseSegment{
-      PiecewiseSegment{1,Linear{1,uint64(k)}},
+      PiecewiseSegment{1,Linear{1,int64(k)}},
     }}
     left := p.fi[k-1]
-    right := p.fi[n-k-1].OffsetX(uint64(k+1))
+    right := p.fi[n-k-1].OffsetX(int64(k+1))
 
     leftRightMax := left.Max(&right)
 
@@ -335,13 +372,12 @@ func (p *PiecewiseSearchCost) GrowOnce() {
   if !isNormal {
     fmt.Printf("%d is WEIRD\n", n)
   }
-  fmt.Printf("F(x,%d) = %s\n", n, minPiecewise.String())
+  // fmt.Printf("F(x,%d) = %s\n", n, minPiecewise.String())
 
-  lb := minPiecewise.LowerBound()
-  ub := minPiecewise.UpperBound()
-
-  fmt.Printf("%s <= F(x,%d) <= %s\n", lb.String(), n, 
-    ub.String())
+  // lb := minPiecewise.LowerBound()
+  // ub := minPiecewise.UpperBound()
+  // fmt.Printf("%s <= F(x,%d) <= %s\n", lb.String(), n, 
+  // ub.String())
   p.fi = append(p.fi, *minPiecewise) 
 }
 
@@ -354,7 +390,7 @@ func (p *PiecewiseSearchCost) GrowOnce() {
 // is already determined using the boolean).
 type composePiecewise struct {
   startA      bool
-  switchIndex []uint64
+  switchIndex []int64
 }
 
 // Produce a Piecewise using the given composePiecewise formula (see above)
@@ -378,7 +414,7 @@ func compose(a *Piecewise, b *Piecewise, comp composePiecewise) Piecewise {
     fromPiecewise = b
   }
 
-  lastSwitchPoint := uint64(1)
+  lastSwitchPoint := int64(1)
   var lastLinear *Linear = nil
 
   for _, value := range comp.switchIndex {
@@ -474,7 +510,7 @@ func minMaxTakeFromFirst(a, b *Piecewise, isMin bool) bool {
 // Advance the segment whose lowerBound occurs first, moving left to right,
 // or advance both if the lowerBounds coincide.
 func advanceIndexes(a, b *Piecewise, aIndex, bIndex *int, 
-                    aEnd, bEnd int, nextIntersection *uint64) bool {
+                    aEnd, bEnd int, nextIntersection *int64) bool {
   switch {
   case *aIndex < aEnd && *bIndex < bEnd:
     switch {
@@ -516,8 +552,8 @@ func advanceIndexes(a, b *Piecewise, aIndex, bIndex *int,
   return false
 }
 
-func insertIntersection(fa, fb Linear, firstIntersection uint64, 
-                        nextIntersection uint64, comp *composePiecewise,
+func insertIntersection(fa, fb Linear, firstIntersection int64, 
+                        nextIntersection int64, comp *composePiecewise,
                         takeFromA *bool, isMin bool) {
   var lineCompare LinearCompare
 
@@ -563,16 +599,15 @@ func insertIntersection(fa, fb Linear, firstIntersection uint64,
   }
 }
 
-
 // Returns a composePiecewise that can be used to produce Min(a,b)
 func minMaxCompose(a, b *Piecewise, isMin bool) composePiecewise {
   takeFromA := minMaxTakeFromFirst(a, b, isMin)
  
-  result := composePiecewise{takeFromA, []uint64{}}
+  result := composePiecewise{takeFromA, []int64{}}
  
   aIndex, aEnd := 0, len(a.segments) - 1
   bIndex, bEnd := 0, len(b.segments) - 1
-  lastIntersection, nextIntersection := uint64(1), uint64(1)
+  lastIntersection, nextIntersection := int64(1), int64(1)
   done := false
 
   for !done { 

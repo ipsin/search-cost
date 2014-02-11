@@ -13,7 +13,7 @@ func TestPiecewiseActiveSegment(t *testing.T) {
     PiecewiseSegment{12, Linear{1,34}},
   }}
 
-  for x := uint64(1); x <= 15; x++ {
+  for x := int64(1); x <= 15; x++ {
     switch {
     case x < 5:
       if v.ActiveSegment(x) != 0{
@@ -134,7 +134,7 @@ func DoTestPiecewiseMinMax(t *testing.T, pairs []piecewisePair,
 
     boundA := test.a.LastLowerBound()
     boundB := test.b.LastLowerBound()
-    var lastCheck uint64
+    var lastCheck int64
 
     if boundA < boundB {
       lastCheck = boundB
@@ -143,7 +143,7 @@ func DoTestPiecewiseMinMax(t *testing.T, pairs []piecewisePair,
     }
     lastCheck += checkDistancePastBound
     
-    for x := uint64(1); x <= lastCheck; x++ {
+    for x := int64(1); x <= lastCheck; x++ {
       va := test.a.Eval(x)
       vb := test.b.Eval(x)
       vc := val.Eval(x)
@@ -169,8 +169,8 @@ func TestRandomMinMax(t *testing.T) {
   rand.NewSource(99)
 
   for i := 0; i < 10000; i++ { 
-    f1 := RandomPiecewise(1, 10, uint64(1), uint64(10), uint64(0), uint64(8), uint64(0), uint64(8))
-    f2 := RandomPiecewise(1, 10, uint64(1), uint64(10), uint64(0), uint64(8), uint64(0), uint64(8))
+    f1 := RandomPiecewise(1, 10, int64(1), int64(10), int64(0), int64(8), int64(0), int64(8))
+    f2 := RandomPiecewise(1, 10, int64(1), int64(10), int64(0), int64(8), int64(0), int64(8))
 
     DoTestPiecewiseMinMax(t, []piecewisePair{piecewisePair{f1, f2}}, 
       "Min", true)
@@ -194,8 +194,8 @@ var minMaxComposeTests = []struct {
        PiecewiseSegment{3, Linear{5,0}},
        PiecewiseSegment{12, Linear{4,3}},
      }},
-    composePiecewise{true, []uint64{3,8,12}}, 
-    composePiecewise{false, []uint64{3,8,12}}, 
+    composePiecewise{true, []int64{3,8,12}}, 
+    composePiecewise{false, []int64{3,8,12}}, 
   },
 }
 
@@ -229,7 +229,7 @@ var piecewisecomposeTests = []struct {
        PiecewiseSegment{1, Linear{3,5}},
        PiecewiseSegment{5, Linear{4,0}},
      }},
-     composePiecewise{false, []uint64{5}},
+     composePiecewise{false, []int64{5}},
      Piecewise{[]PiecewiseSegment{
        PiecewiseSegment{1, Linear{3,5}},
      }},
@@ -242,7 +242,7 @@ var piecewisecomposeTests = []struct {
        PiecewiseSegment{1, Linear{5,14}},
        PiecewiseSegment{12, Linear{6,0}},
      }},
-     composePiecewise{true, []uint64{5,10}},
+     composePiecewise{true, []int64{5,10}},
      Piecewise{[]PiecewiseSegment{
        PiecewiseSegment{1, Linear{7,2}},
        PiecewiseSegment{5, Linear{5,14}},
@@ -259,7 +259,7 @@ var piecewisecomposeTests = []struct {
        PiecewiseSegment{5, Linear{8,2}},
        PiecewiseSegment{12, Linear{7,1}},
      }},
-     composePiecewise{false, []uint64{4,8,14,20}},
+     composePiecewise{false, []int64{4,8,14,20}},
      Piecewise{[]PiecewiseSegment{
        PiecewiseSegment{1, Linear{3,9}},
        PiecewiseSegment{4, Linear{7,2}},
@@ -279,7 +279,7 @@ var piecewisecomposeTests = []struct {
       PiecewiseSegment{1, Linear{7,0}},
       PiecewiseSegment{9, Linear{7,1}},
     }},
-    composePiecewise{false, []uint64{2}},
+    composePiecewise{false, []int64{2}},
     Piecewise{[]PiecewiseSegment{
       PiecewiseSegment{1, Linear{7,0}},
       PiecewiseSegment{2, Linear{5,3}},
@@ -301,9 +301,14 @@ func TestCompose(t *testing.T) {
 func TestIterfunc(t *testing.T) {
   costs := CreatePiecewiseSearchCost()
 
-  costs.Grow(100000)
-
-  // for t := 4; t <= 50; t++ {  
-    // findNextValue(&piecewise_map, t)
-  // }
+  for t := 1; t < 10000; t++ {  
+    costs.Grow(t+1)
+    r1 := costs.fi[t].OffsetX(1)
+    diff := costs.fi[t + 1].Subtract(&r1)
+    if !diff.Equal(&ZERO_PIECEWISE) {
+      // fmt.Printf("F(x+1,%d)=%s\n", t, r1.String())
+      // fmt.Printf("F(x,%d)=%s\n", t+1, costs.fi[t + 1].String())
+      fmt.Printf("** F(x,%d)-F(x+1,%d)=%s\n", t+1, t, diff.String())
+    }
+  }
 }
