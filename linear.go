@@ -16,6 +16,10 @@ const (
   LINEAR_COMPARE_INTERSECTS
 )
 
+func NewLinear(ta int64, tb int64) *Linear {
+  return &Linear{ta,tb}
+}
+
 func (l *Linear) A() int64 {
   return l.a
 }

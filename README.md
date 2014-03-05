@@ -56,7 +56,6 @@ F(x,30) = 4x+78 (1<=x<10), 5x+69 (10<=x<26), 4x+94 (x>=26)
 F(x,31) = 4x+82 (1<=x<9), 5x+74 (9<=x<21), 6x+54 (21<=x<23), 4x+98 (23<=x<69), 5x+30 (x>=69)
 ```
 
-One useful inequality that seems to hold:
+One useful inequality that seems to hold for positive integer k
 
-F(x,n) &ge; tx + t(n + 1 - 2<sup>t</sup>) + n - 1
-where t=floor(log<sub>2</sub>(t+1))
+F(x,2<sup>k</sup> - 1) &ge; kx + 2<sup>k</sup> - 2
