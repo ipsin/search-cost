@@ -33,6 +33,19 @@ var ZERO_PIECEWISE = Piecewise{
   },
 }
 
+func NewPiecewise(vals ...int64) *Piecewise {
+  count := len(vals) / 3
+  pieces := make([]PiecewiseSegment, count)
+  for i := 0; i < count; i++ {
+    pieces[i] = *NewPiecewiseSegment(vals[3*i], vals[3*i+1], vals[3*i+2])
+  }
+  return &Piecewise{pieces}
+}
+
+func NewPiecewiseSegment(bound int64, la int64, lb int64) *PiecewiseSegment { 
+  return &PiecewiseSegment{bound, Linear{la, lb}}
+}
+
 // Find the PiecewiseSegment 
 func (p *Piecewise) ActiveSegment(x int64) int {
   // x = 1 will always be the start of the first segment.
