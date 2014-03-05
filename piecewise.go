@@ -343,6 +343,10 @@ func (p *PiecewiseSearchCost) Grow(v int) {
   }
 }
 
+func (p *PiecewiseSearchCost) Cost(n int) *Piecewise {
+  return &((*p).fi[n])
+}
+
 func (p *PiecewiseSearchCost) GrowOnce() {
   var minPiecewise *Piecewise = nil
   minHits := []int{}

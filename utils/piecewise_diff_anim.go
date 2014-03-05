@@ -5,10 +5,14 @@ import "searchcost"
 // import "github.com/ipsin/searchcost"
 
 func main() {
-  fmt.Printf("Moo\n")
-  t := searchcost.NewLinear(1,1)
-  fmt.Printf("%s\n", t.String())
+  costs := searchcost.CreatePiecewiseSearchCost()
 
-  ar := searchcost.NewPiecewise(1,2,1,5,1,5)
-  fmt.Printf("%s\n", ar.String())
+  for t := 1; t < 40; t++ {
+    costs.Grow(t+1)
+    r1 := costs.Cost(t).OffsetX(1)
+    diff := costs.Cost(t + 1).Subtract(&r1)
+    if !diff.Equal(&searchcost.ZERO_PIECEWISE) {
+      fmt.Printf("** F(x,%d)-F(x+1,%d)=%s\n", t+1, t, diff.String())
+    }
+  }
 }
